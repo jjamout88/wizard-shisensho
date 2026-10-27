@@ -1,45 +1,62 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta property="og:title" content="마법학교 사천성"><meta property="og:image" content="https://jjamout88.github.io/wizard-shisensho/assets/cover.png"><link rel="icon" href="assets/favicon.png"><title>마법학교 사천성</title><style>
-body{margin:0;background:#1a1426;color:#f0e6c8;font-family:sans-serif;text-align:center}
-#hud{padding:8px}button{margin:0 4px;padding:6px 12px;background:#46286e;color:#fff;border:1px solid #e6be3c;border-radius:6px}
-#wrap{overflow:auto}canvas{image-rendering:pixelated;max-width:100%}#coverWrap{position:fixed;inset:0;background:#0b0820;display:flex;align-items:center;justify-content:center;z-index:9;cursor:pointer}#cover{image-rendering:pixelated;height:100vh;max-width:100vw;object-fit:contain}</style></head><body>
-<div id="coverWrap"><canvas id="cover"></canvas></div><div id="hud">🪄 마법 사천성 | 남은 패 <b id="left"></b> | 시간 <b id="t">0</b>s
-<button id="hint">힌트</button><button id="shuf">섞기</button><button id="new">새 게임</button></div>
-<div id="wrap"><canvas id="c"></canvas></div><div id="msg"></div>
+html,body{margin:0;height:100%;overflow:hidden;background:#1a1426;color:#f0e6c8;font-family:sans-serif;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+#hud{height:36px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;background:#24183a;border-bottom:1px solid #4a3570}
+#hud b{color:#ffd650}#board{flex:1;position:relative;min-height:0}#c{position:absolute;inset:0;width:100%;height:100%}
+#bar{height:64px;display:flex;gap:8px;padding:6px 10px;box-sizing:border-box;background:#24183a;border-top:1px solid #4a3570}
+#bar button{flex:1;border:1px solid #e6be3c;border-radius:12px;background:#46286e;color:#fff;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+#bar button span{font-size:20px;line-height:1}#bar button:active{background:#6a3ea0}
+#msg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);background:rgba(20,10,40,.92);border:2px solid #ffd650;border-radius:12px;padding:14px 18px;font-size:16px;display:none;z-index:5;text-align:center}
+#coverWrap{position:fixed;inset:0;background:#0b0820;display:flex;align-items:center;justify-content:center;z-index:9;cursor:pointer}#cover{image-rendering:pixelated;height:100vh;max-width:100vw;object-fit:contain}
+</style></head><body>
+<div id="coverWrap"><canvas id="cover"></canvas></div>
+<div id="app"><div id="hud"><span>🏰 마법학교 사천성</span><span>🀄 <b id="left">0</b> · ⏱ <b id="t">0</b>s</span></div>
+<div id="board"><canvas id="c"></canvas><div id="msg"></div></div>
+<div id="bar"><button id="hint"><span>💡</span>힌트</button><button id="shuf"><span>🔀</span>섞기</button><button id="new"><span>🔄</span>새 게임</button><button id="home"><span>🏠</span>표지</button></div></div>
 <script>
-const IMG=/*IMG*/;const N=Object.keys(IMG),W=18,H=8,TW=48,TH=60,GW=W+2,GH=H+2;
-const im={};N.forEach(n=>{im[n]=new Image();im[n].src=IMG[n];im[n].onload=()=>g&&draw()});
-const c=document.getElementById('c'),x=c.getContext('2d');c.width=GW*TW;c.height=GH*TH;
-let g,sel=null,path=null,hintP=null,t0,timer;
-function nw(){let a=[];N.forEach(n=>{for(let i=0;i<4;i++)a.push(n)});
+const IMG=/*IMG*/;const ALL=Object.keys(IMG),W=6,H=12,GW=W+2,GH=H+2,TYPES=18;
+const im={};ALL.forEach(n=>{im[n]=new Image();im[n].src=IMG[n];im[n].onload=()=>g&&draw()});
+const c=document.getElementById('c'),x=c.getContext('2d'),bd=document.getElementById('board'),msg=document.getElementById('msg');
+let g,sel=null,path=null,hintP=null,t0,timer,TW,TH,OX,OY,M,dpr;
+function layout(){dpr=window.devicePixelRatio||1;const bw=bd.clientWidth,bh=bd.clientHeight;c.width=bw*dpr;c.height=bh*dpr;
+ M=.35;TW=Math.floor(Math.min(bw/(W+2*M),bh/(H+2*M)/1.0));TH=Math.floor(Math.min(TW*1.25,bh/(H+2*M)));TW=Math.min(TW,Math.floor(TH/1.0));
+ OX=Math.round((bw-W*TW)/2);OY=Math.round((bh-H*TH)/2);if(g)draw()}
+addEventListener('resize',layout);
+const cx=X=>OX+(X-1)*TW,cy=y=>OY+(y-1)*TH;
+function say(s,ms){msg.innerHTML=s;msg.style.display='block';if(ms)setTimeout(()=>msg.style.display='none',ms)}
+function nw(){layout();const kinds=ALL.slice().sort(()=>Math.random()-.5).slice(0,TYPES);let a=[];kinds.forEach(n=>{for(let i=0;i<4;i++)a.push(n)});
  do{a.sort(()=>Math.random()-.5);g=[];for(let y=0;y<GH;y++){g.push([]);for(let X=0;X<GW;X++)g[y].push(y>0&&y<=H&&X>0&&X<=W?a[(y-1)*W+X-1]:null)}}while(!anyMove());
- sel=null;t0=Date.now();clearInterval(timer);timer=setInterval(()=>t.textContent=((Date.now()-t0)/1e3|0),1e3);msg.textContent='';draw()}
+ sel=null;hintP=null;t0=Date.now();clearInterval(timer);timer=setInterval(()=>t.textContent=((Date.now()-t0)/1e3|0),1e3);t.textContent=0;msg.style.display='none';draw()}
 function conn(a,b){
  if(g[a[1]][a[0]]!==g[b[1]][b[0]]||(a[0]==b[0]&&a[1]==b[1]))return null;
  const D=[[1,0],[-1,0],[0,1],[0,-1]],best={};let q=[[a[0],a[1],-1,0,[[a[0],a[1]]]]];
- while(q.length){const[cx,cy,d,tn,p]=q.shift();
+ while(q.length){const[px,py,d,tn,p]=q.shift();
   for(let k=0;k<4;k++){const nt=tn+(d>=0&&d!=k?1:0);if(nt>2)continue;
-   const nx2=cx+D[k][0],ny2=cy+D[k][1];if(nx2<0||ny2<0||nx2>=GW||ny2>=GH)continue;
-   const np=p.concat([[nx2,ny2]]);if(nx2==b[0]&&ny2==b[1])return np;
-   if(g[ny2][nx2])continue;const key=nx2+','+ny2+','+k;if(best[key]<=nt)continue;best[key]=nt;q.push([nx2,ny2,k,nt,np])}}
+   const nx=px+D[k][0],ny=py+D[k][1];if(nx<0||ny<0||nx>=GW||ny>=GH)continue;
+   const np=p.concat([[nx,ny]]);if(nx==b[0]&&ny==b[1])return np;
+   if(g[ny][nx])continue;const key=nx+','+ny+','+k;if(best[key]<=nt)continue;best[key]=nt;q.push([nx,ny,k,nt,np])}}
  return null}
 function tilesL(){let r=[];for(let y=0;y<GH;y++)for(let X=0;X<GW;X++)if(g[y][X])r.push([X,y]);return r}
 function anyMove(){const r=tilesL();for(let i=0;i<r.length;i++)for(let j=i+1;j<r.length;j++){if(g[r[i][1]][r[i][0]]==g[r[j][1]][r[j][0]]&&conn(r[i],r[j]))return[r[i],r[j]]}return null}
-function draw(){x.fillStyle='#2a1f3a';x.fillRect(0,0,c.width,c.height);let n=0;
+function draw(){x.setTransform(dpr,0,0,dpr,0,0);x.imageSmoothingEnabled=false;x.fillStyle='#2a1f3a';x.fillRect(0,0,c.width,c.height);let n=0;
  for(let y=0;y<GH;y++)for(let X=0;X<GW;X++){const v=g[y][X];if(!v)continue;n++;
-  if(im[v].complete)x.drawImage(im[v],X*TW,y*TH,TW,TH);
-  if((sel&&sel[0]==X&&sel[1]==y)||(hintP&&hintP.some(h=>h[0]==X&&h[1]==y))){x.fillStyle='rgba(255,220,60,.4)';x.fillRect(X*TW,y*TH,TW-3,TH-3)}}
- if(path){x.strokeStyle='#ffe23c';x.lineWidth=4;x.beginPath();path.forEach((p,i)=>x[i?'lineTo':'moveTo'](p[0]*TW+TW/2,p[1]*TH+TH/2));x.stroke()}
+  const S=sel&&sel[0]==X&&sel[1]==y,Hh=hintP&&hintP.some(h=>h[0]==X&&h[1]==y),lift=S?3:0;
+  if(im[v].complete)x.drawImage(im[v],cx(X),cy(y)-lift,TW,TH);
+  if(S||Hh){x.lineWidth=3;x.strokeStyle=S?'#ffe23c':'#5ff0ff';x.strokeRect(cx(X)+1.5,cy(y)-lift+1.5,TW*.94-3,TH*.95-3);x.fillStyle=S?'rgba(255,226,60,.25)':'rgba(95,240,255,.2)';x.fillRect(cx(X),cy(y)-lift,TW*.94,TH*.95)}}
+ if(path){x.strokeStyle='#ffe23c';x.lineWidth=4;x.lineJoin='round';x.beginPath();path.forEach((p,i)=>x[i?'lineTo':'moveTo'](cx(p[0])+TW*.47,cy(p[1])+TH*.47));x.stroke()}
  left.textContent=n}
-c.onclick=e=>{const r=c.getBoundingClientRect(),X=((e.clientX-r.left)*c.width/r.width/TW)|0,y=((e.clientY-r.top)*c.height/r.height/TH)|0;
- if(!g[y]||!g[y][X])return;hintP=null;
+c.addEventListener('pointerdown',e=>{const r=c.getBoundingClientRect(),X=Math.floor((e.clientX-r.left-OX)/TW)+1,y=Math.floor((e.clientY-r.top-OY)/TH)+1;
+ if(!g[y]||!g[y][X]){sel=null;draw();return}hintP=null;
  if(!sel){sel=[X,y];draw();return}
+ if(sel[0]==X&&sel[1]==y){sel=null;draw();return}
  const p=conn(sel,[X,y]);
- if(p){const s=sel;path=p;sel=null;draw();setTimeout(()=>{g[s[1]][s[0]]=null;g[y][X]=null;path=null;draw();check()},250)}
- else{sel=[X,y];draw()}};
-function check(){if(!tilesL().length){clearInterval(timer);msg.textContent='🎉 클리어! '+t.textContent+'초';return}if(!anyMove()){msg.textContent='막혔어요 — 자동으로 섞습니다';shuffle()}}
-function shuffle(){const r=tilesL();let v;do{v=r.map(p=>g[p[1]][p[0]]).sort(()=>Math.random()-.5);r.forEach((p,i)=>g[p[1]][p[0]]=v[i])}while(!anyMove());draw()}
+ if(p){const s=sel;path=p;sel=null;draw();navigator.vibrate&&navigator.vibrate(15);setTimeout(()=>{g[s[1]][s[0]]=null;g[y][X]=null;path=null;draw();check()},220)}
+ else{sel=[X,y];draw()}});
+function check(){if(!tilesL().length){clearInterval(timer);say('🎉 클리어!<br>'+t.textContent+'초');return}if(!anyMove()){say('막혔어요 — 섞을게요',1200);shuffle()}}
+function shuffle(){const r=tilesL();if(!r.length)return;let v;do{v=r.map(p=>g[p[1]][p[0]]).sort(()=>Math.random()-.5);r.forEach((p,i)=>g[p[1]][p[0]]=v[i])}while(!anyMove());sel=null;draw()}
 hint.onclick=()=>{hintP=anyMove();draw()};shuf.onclick=shuffle;document.getElementById('new').onclick=nw;
+home.onclick=()=>location.reload();
 const COVER=/*COVER*/;
 /*COVERJS*/
 </script></body></html>
