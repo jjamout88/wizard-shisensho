@@ -1,0 +1,44 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>마법 사천성</title><style>
+body{margin:0;background:#1a1426;color:#f0e6c8;font-family:sans-serif;text-align:center}
+#hud{padding:8px}button{margin:0 4px;padding:6px 12px;background:#46286e;color:#fff;border:1px solid #e6be3c;border-radius:6px}
+#wrap{overflow:auto}canvas{image-rendering:pixelated;max-width:100%}</style></head><body>
+<div id="hud">🪄 마법 사천성 | 남은 패 <b id="left"></b> | 시간 <b id="t">0</b>s
+<button id="hint">힌트</button><button id="shuf">섞기</button><button id="new">새 게임</button></div>
+<div id="wrap"><canvas id="c"></canvas></div><div id="msg"></div>
+<script>
+const IMG=/*IMG*/;const N=Object.keys(IMG),W=18,H=8,TW=48,TH=60,GW=W+2,GH=H+2;
+const im={};N.forEach(n=>{im[n]=new Image();im[n].src=IMG[n];im[n].onload=()=>g&&draw()});
+const c=document.getElementById('c'),x=c.getContext('2d');c.width=GW*TW;c.height=GH*TH;
+let g,sel=null,path=null,hintP=null,t0,timer;
+function nw(){let a=[];N.forEach(n=>{for(let i=0;i<4;i++)a.push(n)});
+ do{a.sort(()=>Math.random()-.5);g=[];for(let y=0;y<GH;y++){g.push([]);for(let X=0;X<GW;X++)g[y].push(y>0&&y<=H&&X>0&&X<=W?a[(y-1)*W+X-1]:null)}}while(!anyMove());
+ sel=null;t0=Date.now();clearInterval(timer);timer=setInterval(()=>t.textContent=((Date.now()-t0)/1e3|0),1e3);msg.textContent='';draw()}
+function conn(a,b){
+ if(g[a[1]][a[0]]!==g[b[1]][b[0]]||(a[0]==b[0]&&a[1]==b[1]))return null;
+ const D=[[1,0],[-1,0],[0,1],[0,-1]],best={};let q=[[a[0],a[1],-1,0,[[a[0],a[1]]]]];
+ while(q.length){const[cx,cy,d,tn,p]=q.shift();
+  for(let k=0;k<4;k++){const nt=tn+(d>=0&&d!=k?1:0);if(nt>2)continue;
+   const nx2=cx+D[k][0],ny2=cy+D[k][1];if(nx2<0||ny2<0||nx2>=GW||ny2>=GH)continue;
+   const np=p.concat([[nx2,ny2]]);if(nx2==b[0]&&ny2==b[1])return np;
+   if(g[ny2][nx2])continue;const key=nx2+','+ny2+','+k;if(best[key]<=nt)continue;best[key]=nt;q.push([nx2,ny2,k,nt,np])}}
+ return null}
+function tilesL(){let r=[];for(let y=0;y<GH;y++)for(let X=0;X<GW;X++)if(g[y][X])r.push([X,y]);return r}
+function anyMove(){const r=tilesL();for(let i=0;i<r.length;i++)for(let j=i+1;j<r.length;j++){if(g[r[i][1]][r[i][0]]==g[r[j][1]][r[j][0]]&&conn(r[i],r[j]))return[r[i],r[j]]}return null}
+function draw(){x.fillStyle='#2a1f3a';x.fillRect(0,0,c.width,c.height);let n=0;
+ for(let y=0;y<GH;y++)for(let X=0;X<GW;X++){const v=g[y][X];if(!v)continue;n++;
+  if(im[v].complete)x.drawImage(im[v],X*TW,y*TH,TW,TH);
+  if((sel&&sel[0]==X&&sel[1]==y)||(hintP&&hintP.some(h=>h[0]==X&&h[1]==y))){x.fillStyle='rgba(255,220,60,.4)';x.fillRect(X*TW,y*TH,TW-3,TH-3)}}
+ if(path){x.strokeStyle='#ffe23c';x.lineWidth=4;x.beginPath();path.forEach((p,i)=>x[i?'lineTo':'moveTo'](p[0]*TW+TW/2,p[1]*TH+TH/2));x.stroke()}
+ left.textContent=n}
+c.onclick=e=>{const r=c.getBoundingClientRect(),X=((e.clientX-r.left)*c.width/r.width/TW)|0,y=((e.clientY-r.top)*c.height/r.height/TH)|0;
+ if(!g[y]||!g[y][X])return;hintP=null;
+ if(!sel){sel=[X,y];draw();return}
+ const p=conn(sel,[X,y]);
+ if(p){const s=sel;path=p;sel=null;draw();setTimeout(()=>{g[s[1]][s[0]]=null;g[y][X]=null;path=null;draw();check()},250)}
+ else{sel=[X,y];draw()}};
+function check(){if(!tilesL().length){clearInterval(timer);msg.textContent='🎉 클리어! '+t.textContent+'초';return}if(!anyMove()){msg.textContent='막혔어요 — 자동으로 섞습니다';shuffle()}}
+function shuffle(){const r=tilesL();let v;do{v=r.map(p=>g[p[1]][p[0]]).sort(()=>Math.random()-.5);r.forEach((p,i)=>g[p[1]][p[0]]=v[i])}while(!anyMove());draw()}
+hint.onclick=()=>{hintP=anyMove();draw()};shuf.onclick=shuffle;document.getElementById('new').onclick=nw;
+window.onload=nw;
+</script></body></html>
